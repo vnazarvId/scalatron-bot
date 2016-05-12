@@ -9,13 +9,14 @@ lazy val scalatronBot = (project in file(".")).settings(
   scalaVersion := "2.11.8",
   libraryDependencies ++= List(
     "org.scalatest" %% "scalatest" % "3.0.0-M15" % "test",
-    "org.scalacheck" %% "scalacheck" % "1.12.5" % "test"
+    "org.scalacheck" %% "scalacheck" % "1.12.5" % "test",
+    "com.assembla.scala-incubator" %% "graph-core" % "1.11.0"
   ),
   scalacOptions += "-feature",
   botDirectory := file("/Users/nazarvolosetskyy/Documents/code/scalatron/scalatron/dist/bots"),
   //botDirectory := file("/Volumes/bots"),
 
-  botName := "nazarTestBot",
+  botName := "DrunkBot",
   publish := {
     (Keys.test in Test).value
     (Keys.compile in Compile).value
