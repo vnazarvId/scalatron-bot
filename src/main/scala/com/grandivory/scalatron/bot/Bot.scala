@@ -2,7 +2,7 @@ package com.grandivory.scalatron.bot
 
 import com.grandivory.scalatron.bot.commands._
 import com.grandivory.scalatron.bot.util.ViewObject.Empty
-import com.grandivory.scalatron.bot.util._
+import com.grandivory.scalatron.bot.util.{Fluppet, _}
 
 object Bot {
 
@@ -28,9 +28,30 @@ object Bot {
       numLivingSlaves,
       extraProps)) =>
 
+      var action: Option[BotCommand] = None
 
+      val r = scala.util.Random
+
+      action = if ((r.nextInt(100) % 50) == 0) {
         Some(Move(Direction.randomDirection))
+      } else None
 
+      if (action.isEmpty) {
+
+        var nearestGood:RelativePosition = null
+        // Iterate objects in view
+        for {(key: RelativePosition, value: ViewObject) <- view.objectsInView} {
+          value match {
+            case Fluppet => { nearestGood = if (nearestGood == null || key.compare(nearestGood) == -1) key else nearestGood }
+            case Zugar => { nearestGood = if (nearestGood == null || key.compare(nearestGood) == -1) key else nearestGood }
+          }
+        }
+
+        action = Some(Move(nearestGood.direction.get))
+
+      }
+
+      action
     /*  val role: String = (for {
         props <- extraProps
         role: String <- props.get("role")
