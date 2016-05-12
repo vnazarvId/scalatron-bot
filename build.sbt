@@ -12,8 +12,10 @@ lazy val scalatronBot = (project in file(".")).settings(
     "org.scalacheck" %% "scalacheck" % "1.12.5" % "test"
   ),
   scalacOptions += "-feature",
-  botDirectory := file("."),
-  botName := "",
+  botDirectory := file("/Users/nazarvolosetskyy/Documents/code/scalatron/scalatron/dist/bots"),
+  //botDirectory := file("/Volumes/bots"),
+
+  botName := "nazarTestBot",
   publish := {
     (Keys.test in Test).value
     (Keys.compile in Compile).value
