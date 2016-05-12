@@ -28,7 +28,10 @@ object Bot {
       numLivingSlaves,
       extraProps)) =>
 
-      val role: String = (for {
+
+        Some(Move(Direction.randomDirection))
+
+    /*  val role: String = (for {
         props <- extraProps
         role: String <- props.get("role")
       } yield role).getOrElse(ROLE_GATHERER)
@@ -141,13 +144,13 @@ object Bot {
           }) map {
           _ + Status("PEW!")
         }
-      }
+      }*/
     case None =>
       Some(Say("?!?!?!?!?") + Move(Direction.Up))
     case _ => None
   }
 
-  private def nearestSafeCell(cell: RelativePosition, view: View): Option[RelativePosition] = {
+  /*private def nearestSafeCell(cell: RelativePosition, view: View): Option[RelativePosition] = {
     view.objectsInView.keys.toList.sortBy(_ - cell).find {
       view.objectAt(_) match {
         case Some(Empty) => true
@@ -155,9 +158,9 @@ object Bot {
         case _ => false
       }
     }
-  }
+  }*/
 
-  private def shortestPathTo(cell: RelativePosition, view: View): Option[List[Direction]] = {
+ /* private def shortestPathTo(cell: RelativePosition, view: View): Option[List[Direction]] = {
     def okToMove(objectInSpot: Option[ViewObject]): Boolean = objectInSpot match {
       case Some(Empty) => true
       case Some(gameObject: GameObject) => gameObject.isGood
@@ -193,5 +196,5 @@ object Bot {
     allPaths.collectFirst {
       case (directions: Vector[Direction], endPosition: RelativePosition) if endPosition == cell => directions.toList
     }
-  }
+  }*/
 }
