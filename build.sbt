@@ -13,8 +13,8 @@ lazy val scalatronBot = (project in file(".")).settings(
     "com.assembla.scala-incubator" %% "graph-core" % "1.11.0"
   ),
   scalacOptions += "-feature",
-  botDirectory := file("/Users/nazarvolosetskyy/Documents/code/scalatron/scalatron/dist/bots"),
-  //botDirectory := file("/Volumes/bots"),
+  //botDirectory := file("/Users/nazarvolosetskyy/Documents/code/scalatron/scalatron/dist/bots"),
+  botDirectory := file("/Volumes/bots"),
 
   botName := "DrunkBot",
   publish := {

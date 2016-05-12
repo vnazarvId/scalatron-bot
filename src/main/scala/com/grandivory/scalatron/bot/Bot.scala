@@ -44,10 +44,14 @@ object Bot {
           value match {
             case Fluppet => { nearestGood = if (nearestGood == null || key.compare(nearestGood) == -1) key else nearestGood }
             case Zugar => { nearestGood = if (nearestGood == null || key.compare(nearestGood) == -1) key else nearestGood }
+            case _ => ()
           }
         }
 
-        action = Some(Move(nearestGood.direction.get))
+        action = if (nearestGood != null && nearestGood.direction.isDefined)
+          Some(Move(nearestGood.direction.get))
+        else
+          Some(Move(Direction.randomDirection))
 
       }
 
