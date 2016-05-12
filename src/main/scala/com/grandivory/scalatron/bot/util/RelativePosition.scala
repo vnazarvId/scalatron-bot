@@ -12,7 +12,12 @@ import com.grandivory.scalatron.bot.util.Direction._
 case class RelativePosition(x: LeftRight = 0.left, y: UpDown = 0.up) extends Ordered[RelativePosition] {
   def distance: Int = Math.max(x.distance, y.distance) // Number of moves it would take to get to that spot
 
-  def distanceTo(that: RelativePosition): Int = Math.max((x - that.x).distance, (y - that.y).distance)
+  //def distanceTo(that: RelativePosition): Int = Math.max((x - that.x).distance, (y - that.y).distance)
+  def distanceTo(that: RelativePosition): Int = {
+    val xd = x.coordinate.toDouble - that.x.coordinate.toDouble
+    val yd = y.coordinate.toDouble - that.y.coordinate.toDouble
+    Math.sqrt( xd*xd - yd*yd ).toInt
+  }
 
   def direction: Option[Direction] = (x, y) match {
     case (LeftRight(0), UpDown(ud)) if ud < 0 => Some(Direction.Up)
