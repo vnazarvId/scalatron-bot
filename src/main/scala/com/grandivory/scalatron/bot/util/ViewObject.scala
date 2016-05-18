@@ -5,7 +5,7 @@ object ViewObject {
   case object Empty extends ViewObject
 }
 
-sealed trait GameObject extends ViewObject {
+sealed trait  GameObject extends ViewObject {
   def isGood: Boolean
   def canMove: Boolean
 }

@@ -1,6 +1,7 @@
 package com.grandivory.scalatron.bot.util
 
 import PositionVectorConversions._
+import com.grandivory.scalatron.bot.util
 
 /**
   * A representation of everything that a bot can see
@@ -13,6 +14,10 @@ class View private(val distance: Int,
   def canSeeFluppets: Boolean = objectsInView.values.exists(Fluppet == _)
   def canSeeZugars: Boolean = objectsInView.values.exists(Zugar == _)
   def canSeeToxifera: Boolean = objectsInView.values.exists(Toxifera == _)
+  def canSeeAnything: Boolean = objectsInView.values.exists( _.isInstanceOf[GameObject] )
+  def canSeeWalls: Boolean = objectsInView.values.exists(Wall == _)
+  def canSeeOnlyWalls:Boolean = canSeeWalls && !(canSeeSnorgs || canSeeFluppets || canSeeZugars || canSeeToxifera)
+
   def nearestGameObject: Option[(RelativePosition, GameObject)] = {
     // The scala compiler can't seem to figure out the type of this simple partial function unless I explicitly break
     // it out and explicitly assign it.
@@ -73,6 +78,8 @@ object View {
             }
         }
     }
+
+
 
     new View(viewDistance,viewObjects, viewString)
   }

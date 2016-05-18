@@ -1,14 +1,67 @@
 package com.grandivory.scalatron.bot
 
 import com.grandivory.scalatron.bot.commands._
+import com.grandivory.scalatron.bot.util.Direction._
 import com.grandivory.scalatron.bot.util.ViewObject.Empty
-import com.grandivory.scalatron.bot.util.{Fluppet, _}
+import com.grandivory.scalatron.bot.util._
+
+import scalax.collection.edge.WDiEdge
+
+// Graph Library
+import scalax.collection.mutable.Graph
+import scalax.collection.GraphPredef._
+import scalax.collection.GraphEdge._
 
 object Bot {
+
+  val angryQuotes: List[String] = "Looking good, sweetheart!" ::
+    "I can't find my pants!" :: "I dunno if that's vomit!" :: "I'll have another!" ::
+    "Ain't no bad booze!" :: "Bartender! Hey! Bartender!" :: Nil
 
   val ROLE_MISSILE = "missile"
   val ROLE_GATHERER = "gatherer"
   val GATHERER_MAX_ENERGY = 2000
+
+  def figureSurroundings(rp:RelativePosition, adj:Double => Double): List[Double] = {
+    List(
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(-1), UpDown(-1))),
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(0),  UpDown(-1))),
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(1),  UpDown(-1))),
+
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(-1), UpDown(0))),
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(1),  UpDown(0))),
+
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(-1), UpDown(1))),
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(0),  UpDown(1))),
+      rp.euclidianDistanceTo(RelativePosition(LeftRight(1),  UpDown(1)))
+    ) map adj
+  }
+
+  def computeWeight(go:ViewObject)(in: Double) = go match {
+    case Wall => in * -200
+    case Snorg => in * -150
+    case Fluppet => in * 750
+    case Zugar => in * 500
+    case Toxifera => in * -200
+    case EnemyBot => in * -800
+    case EnemySlave => in * -800
+    case MasterBot => 0.0
+    case Slave => 0.0
+    case _ => 0.0
+   }
+
+  def computeWeightedArray(go:ViewObject, rp:RelativePosition, adj:Double => Double): List[Double] =
+    figureSurroundings(rp, adj) map computeWeight(go)
+
+  def findDirection(in:List[Double]): Direction = {
+    val conv:Map[Int, Direction] = Map(
+      0 -> UpLeft, 1 -> Up, 2 -> UpRight,
+      3 -> Left,            4 -> Right,
+      5 -> DownLeft, 6-> Down, 7 -> DownRight
+      )
+
+    conv( in.zipWithIndex.maxBy(_._1)._2 )
+  }
 
   /**
     * This is the main function that is called each round that your bot can take an action. Your bot is given an
@@ -32,144 +85,37 @@ object Bot {
 
       val r = scala.util.Random
 
-      action = if ((r.nextInt(100) % 50) == 0) {
+      action = if ((r.nextInt(100) % 10) == 0) {
         Some(Move(Direction.randomDirection))
+      } else if (view.canSeeOnlyWalls) {
+        Some( Spawn(Direction.randomDirection,Some((numLivingSlaves+1).toString),1,None) )
       } else None
 
       if (action.isEmpty) {
 
-        var nearestGood:RelativePosition = null
+        var summed:List[Double] = List[Double](0,0,0,0,0,0,0,0)
+
         // Iterate objects in view
         for {(key: RelativePosition, value: ViewObject) <- view.objectsInView} {
-          value match {
-            case Fluppet => { nearestGood = if (nearestGood == null || key.compare(nearestGood) == -1) key else nearestGood }
-            case Zugar => { nearestGood = if (nearestGood == null || key.compare(nearestGood) == -1) key else nearestGood }
-            case _ => ()
+
+          def sign(in:Double): Double = {
+            if (in>0 || in == 0) 1
+            else  -1
           }
+
+          def weightfunc(obj:ViewObject)(inval:Double) = obj match {
+            case Wall => sign(inval) * (1.0 / (inval*inval))
+            case _ => 1.0 / inval
+          }
+
+          summed = summed zip computeWeightedArray(value, key, weightfunc(value)) map { case (l,r) => l +r }
         }
 
-        action = if (nearestGood != null && nearestGood.direction.isDefined)
-          Some(Move(nearestGood.direction.get))
-        else
-          Some(Move(Direction.randomDirection))
-
+        action = Some( Move( findDirection(summed) ) )
       }
 
       action
-    /*  val role: String = (for {
-        props <- extraProps
-        role: String <- props.get("role")
-      } yield role).getOrElse(ROLE_GATHERER)
 
-      role match {
-        // Gatherer:
-        case ROLE_GATHERER if generation > 0 && currentEnergy > GATHERER_MAX_ENERGY =>
-          // If we're a slave and over our max energy, head back toward the main bot
-          val moveCommand: Option[Move] =
-            // If we can see the master bot, find the shortest path to it
-            (for {
-              masterPosition <- view.objectsInView.toList.map(_.swap).toMap.get(MasterBot)
-              shortestPath <- shortestPathTo(masterPosition, view)
-              firstMove <- shortestPath.headOption
-            } yield {
-              Move(firstMove)
-            }) orElse {
-              // If we can't see the master bot, try to move in its direction, at least
-              for {
-                movementDirection <- masterDirection
-                movementTarget <- nearestSafeCell(movementDirection * view.distance, view)
-                shortestPath <- shortestPathTo(movementTarget, view)
-                firstMove <- shortestPath.headOption
-              } yield {
-                Move(firstMove)
-              }
-            }
-
-          moveCommand.map(_ + Status("Comin' home!"))
-
-        case ROLE_GATHERER =>
-          // Otherwise, look for the nearest food item.
-          // If we can, spawn a slave to go grab it (up to 2 levels deep)
-          // Otherwise, grab it ourselves
-          // If there's nothing to grab, pick an open direction and start moving
-          val nearestFood: Option[RelativePosition] = view.nearest { obj: ViewObject =>
-            Fluppet == obj || Zugar == obj
-          }
-          val nearestFoodDirection: Option[Direction] = for {
-            target <- nearestFood
-            shortestPath <- shortestPathTo(target, view)
-            direction <- shortestPath.headOption
-          } yield {
-            direction
-          }
-
-          val spawnCommand =
-            if (generation > 0 || currentEnergy < 100) None
-            else nearestFoodDirection map { spawnDirection =>
-              Spawn(
-                direction = spawnDirection,
-                name = None,
-                energy = 100,
-                slaveProperties = Some(Map("role" -> ROLE_GATHERER))
-              )
-            }
-
-          val moveCommand = spawnCommand match {
-            case Some(Spawn(spawnDirection, _, _, _)) => Some(Move(spawnDirection.reverse))
-            case None => nearestFoodDirection map { moveDirection =>
-              Move(moveDirection)
-            }
-          }
-
-          // Also, if there's any enemies, spawn a missile in their direction
-          val missileCommand = spawnCommand match {
-            case None if 0 == generation && currentEnergy >= 100 =>
-              val nearestEnemy: Option[RelativePosition] = view.nearest { obj: ViewObject =>
-                Set[ViewObject](EnemyBot, EnemySlave, Snorg) contains obj
-              }
-              for {
-                enemyPosition <- nearestEnemy
-                shortestPath <- shortestPathTo(enemyPosition, view)
-                spawnDirection <- shortestPath.headOption
-              } yield {
-                Spawn(
-                  direction = spawnDirection,
-                  name = None,
-                  energy = 100,
-                  slaveProperties = Some(Map("role" -> ROLE_MISSILE))
-                )
-              }
-            case _ => None
-          }
-
-          for {
-            move <- moveCommand
-            spawn <- spawnCommand
-            missile <- missileCommand
-          } yield {
-            move + spawn + missile + Status("Searchin'")
-          }
-
-        case ROLE_MISSILE =>
-          val nearestEnemy: Option[RelativePosition] = view.nearest { obj: ViewObject =>
-            Set[ViewObject](EnemyBot, EnemySlave, Snorg) contains obj
-          }
-
-          (nearestEnemy match {
-            // If there's an enemy within 2 cells, explode!
-            case Some(position) if position.distance <= 2 => Some(Explode(3))
-            // Otherwise, seek the nearest enemy
-            case Some(position) => for {
-                shortestPath <- shortestPathTo(position, view)
-              } yield {
-              Move(shortestPath.head)
-            }
-            // If everyone is out of range, turn into a gatherer
-            case None => Some(SetProperties(Map("role" -> ROLE_GATHERER)))
-          }) map {
-          _ + Status("PEW!")
-        }
-      }*/
     case None =>
       Some(Say("?!?!?!?!?") + Move(Direction.Up))
     case _ => None
@@ -203,23 +149,61 @@ object Bot {
       }
     }
 
-    val allPaths: Stream[(Vector[Direction], RelativePosition)] =
-      Stream.iterate((Set((Vector.empty[Direction], Origin: RelativePosition)), Set[RelativePosition](Origin))) {
-        case (moveSet: Set[(Vector[Direction], RelativePosition)], visitedPositions) =>
-          val nextMoveSets = moveSet flatMap {
-            case (directions, currentPosition) =>
-              nextNodes(directions, currentPosition, visitedPositions)
-          }
+    if (Origin == cell) Some(Nil)
+    else if (!okToMove(view.objectAt(cell))) None
+    else {
+      val allPaths: Stream[(Set[(Vector[Direction], RelativePosition)], Set[RelativePosition])] =
+        Stream.iterate((Set((Vector.empty[Direction], Origin: RelativePosition)), Set[RelativePosition](Origin))) {
+          case (moveSet: Set[(Vector[Direction], RelativePosition)], visitedPositions) =>
+            val nextMoveSets = moveSet flatMap {
+              case (directions, currentPosition) =>
+                nextNodes(directions, currentPosition, visitedPositions)
+            }
 
-          val newVisitedPositions = visitedPositions ++ nextMoveSets.map(_._2)
-          (nextMoveSets, newVisitedPositions)
-      } takeWhile {
-        case (moveSet: Set[(Vector[Direction], RelativePosition)], visitedCells: Set[RelativePosition]) =>
-          moveSet.nonEmpty
-      } flatMap (_._1.toStream)
+            val newVisitedPositions = visitedPositions ++ nextMoveSets.map(_._2)
+            (nextMoveSets, newVisitedPositions)
+        } takeWhile {
+          case (moveSet: Set[(Vector[Direction], RelativePosition)], visitedCells: Set[RelativePosition]) =>
+            moveSet.nonEmpty
+        }
 
-    allPaths.collectFirst {
-      case (directions: Vector[Direction], endPosition: RelativePosition) if endPosition == cell => directions.toList
+      allPaths.take(10).flatMap(_._1.toStream).collectFirst {
+        case (directions: Vector[Direction], endPosition: RelativePosition) if endPosition == cell => directions.toList
+      }
     }
   }
+
+  private def andAlso(left: Option[BotCommand], right: Option[BotCommand]): Option[BotCommand] = {
+    (left, right) match {
+      case (Some(l), Some(r)) => Some(l + r)
+      case (Some(l), None) => left
+      case (None, Some(r)) => right
+      case (None, None) => None
+    }
+  }
+/*
+  private def pathToCell(startNode:ViewObject, endNode:ViewObject, visibleZone:View):Direction = {
+
+    val visibilityZoneGraph: Graph[RelativePosition, WDiEdge] = Graph[RelativePosition, WDiEdge]()
+    //visibilityZoneGraph += startNode ~> endNode
+
+    visibleZone.objectsInView.foldLeft(visibilityZoneGraph) { (graphAggregator, item) => item match {
+      case (Some(firstNode), Some(secondNode)) => graphAggregator += firstNode ~> secondNode % 1 /*weight value here*/
+      case (Some(firstNode), None) => graphAggregator += firstNode
+      case _ => graphAggregator
+    }}
+
+    visibilityZoneGraph find endNode match {
+      case /*Success*/ => {
+        visibilityZoneGraph get startNode shortestPathTo endNode match {
+          case Some(pathLength) => (pathLength.weight + 1).toInt
+          case None => 9999
+        }
+      }
+      // For some reason there is no endNode in the map
+      case None => 9999
+
+    }
+
+  }*/
 }

@@ -11,13 +11,10 @@ import com.grandivory.scalatron.bot.util.Direction._
   */
 case class RelativePosition(x: LeftRight = 0.left, y: UpDown = 0.up) extends Ordered[RelativePosition] {
   def distance: Int = Math.max(x.distance, y.distance) // Number of moves it would take to get to that spot
+  def euclidianDistance: Double = Math.sqrt(x.distance*x.distance + y.distance*y.distance)
 
   def distanceTo(that: RelativePosition): Int = Math.max((x - that.x).distance, (y - that.y).distance)
-  /*def distanceTo(that: RelativePosition): Int = {
-    val xd = x.coordinate.toDouble - that.x.coordinate.toDouble
-    val yd = y.coordinate.toDouble - that.y.coordinate.toDouble
-    Math.sqrt( xd*xd - yd*yd ).toInt
-  }*/
+  def euclidianDistanceTo(that: RelativePosition): Double = (that - this).euclidianDistance
 
   def direction: Option[Direction] = (x, y) match {
     case (LeftRight(0), UpDown(ud)) if ud < 0 => Some(Direction.Up)
@@ -52,6 +49,14 @@ case class RelativePosition(x: LeftRight = 0.left, y: UpDown = 0.up) extends Ord
   }
 
   override def toString: String = s"$x:$y"
+}
+
+object RelativePosition {
+  def parse(input: String) = {
+    val (x: String, y: String) = input.splitAt(input.indexOf(':'))
+
+    RelativePosition(x.toInt.right, y.drop(1).toInt.down)
+  }
 }
 
 object Origin extends RelativePosition(LeftRight(0), UpDown(0))
